@@ -1,26 +1,33 @@
-import { Client, Message } from 'discord.js';
+import { Client, Message, Interaction, CommandInteraction, Events } from 'discord.js';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
+import { data, execute } from './commands/main';
 
 dotenv.config();
 
-const isCommand = async (message: Message, currentModel: string) => {
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const defaultModel = 'gpt-3.5-turbo-1106';
+const plusModel = 'gpt-4-1106-preview';
+const systemContent = process.env.SYSTEM_PROMPT ?? '';
+let debugModel = defaultModel;
+
+const isCommand = async (message: Message, model: string) => {
   const args = message.content.split(' ');
 
   if (message.content.includes('!ignore') || message.content.includes('!ig')) {
     // 何もしない
   }
   else if (message.content === '!model') {
-    message.channel.send(`現在のモデルは${currentModel}です。`);
+    message.channel.send(`現在のモデルは${model}です。`);
   }
   else if (message.content.includes('!setmodel')) {
     if (args.length === 2) {
       if (args[1] === 'default') {
-        model = defaultModel;
+        debugModel = defaultModel;
         message.channel.send(`モデルを${defaultModel}に設定しました。`);
       }
       else if (args[1] === 'plus') {
-        model = plusModel;
+        debugModel = plusModel;
         message.channel.send(`モデルを${plusModel}に設定しました。`);
       }
       else {
@@ -80,41 +87,7 @@ const isCommand = async (message: Message, currentModel: string) => {
   return true;
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const defaultModel = 'gpt-3.5-turbo-1106';
-const plusModel = 'gpt-4-1106-preview';
-let model = defaultModel;
-
-const systemContent = process.env.SYSTEM_PROMPT ?? '';
-
-const client = new Client({
-  intents: ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent'],
-});
-
-client.once('ready', () => {
-  console.log('準備完了!');
-  console.log(`BOT Name: ${client.user?.tag}`);
-  console.log(`Default GPT Model: ${defaultModel}`);
-});
-
-client.on('messageCreate', async (message: Message) => {
-  if (message.author.bot) return;
-
-  // Default
-  if (message.channelId === process.env.DEFAULT_CHANNEL_ID) {
-    model = defaultModel;
-  }
-  // Plus
-  else if (message.channelId === process.env.PLUS_CHANNEL_ID) {
-    model = plusModel;
-  }
-  else if (message.channelId === process.env.DEBUG_CHANNEL_ID) {
-    console.log('debug channel');
-  }
-  else {
-    return;
-  }
-
+const sendMessage = async (message: Message, model: string) => {
   if (await isCommand(message, model)) return;
 
   message.channel.sendTyping();
@@ -133,6 +106,45 @@ client.on('messageCreate', async (message: Message) => {
   });
 
   message.channel.send(completion.choices[0].message.content ?? 'null');
+}
+
+const client = new Client({
+  intents: ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent'],
+});
+
+client.once('ready', () => {
+  console.log('準備完了!');
+  console.log(`BOT Name: ${client.user?.tag}`);
+  console.log(`Default GPT Model: ${defaultModel}`);
+});
+
+client.on('messageCreate', async (message: Message) => {
+  if (message.author.bot) return;
+
+  // Default
+  if (message.channelId === process.env.DEFAULT_CHANNEL_ID) {
+    sendMessage(message, defaultModel);
+  }
+  // Plus
+  else if (message.channelId === process.env.PLUS_CHANNEL_ID) {
+    sendMessage(message, plusModel);
+  }
+  else if (message.channelId === process.env.DEBUG_CHANNEL_ID) {
+    sendMessage(message, debugModel);
+  }
+  else {
+    return;
+  }
+});
+
+client.on('interactionCreate' , async (interaction: Interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const commandInteraction = interaction as CommandInteraction;
+
+  if (interaction.commandName === data.name) {
+    await execute(interaction);
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
