@@ -5,7 +5,7 @@ import { data } from './commands/main';
 
 dotenv.config();
 
-const version = '1.3';
+const version = '2.0';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const defaultModel = 'gpt-3.5-turbo-1106';
 const plusModel = 'gpt-4-1106-preview';
@@ -44,7 +44,7 @@ const isCommand = async (message: Message, model: string) => {
       message.channel.send('引数の数が不正です。');
       return true;
     }
-    
+
     let before = 1;
 
     try {
@@ -88,8 +88,55 @@ const isCommand = async (message: Message, model: string) => {
   return true;
 }
 
+const getImageExplanation = async (message: Message) => {
+  const file = message.attachments.first();
+
+  if (file?.height && file?.width) {
+    if (file.contentType?.includes('image')) {
+      message.channel.sendTyping();
+      const completion = await openai.chat.completions.create({
+        messages: [
+          {
+            "role": "user",
+            "content": [
+              { "type": "text", "text": "What’s in this image? in Japanese." },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": file.url,
+                  "detail": "low"
+                }
+              }
+            ]
+          }
+        ],
+        model: 'gpt-4-vision-preview',
+        max_tokens: 200,
+      });
+
+      return completion.choices[0].message.content ?? 'null';
+    }
+    else {
+      return 'noImage';
+    }
+  }
+  else {
+    return 'noImage';
+  }
+}
+
 const sendMessage = async (message: Message, model: string) => {
   if (await isCommand(message, model)) return;
+
+  let content = message.content;
+
+  if (model === plusModel) {
+    const imageExplanation = await getImageExplanation(message);
+
+    if (imageExplanation !== 'noImage') {
+      content = `あなたは生徒から画像を見せられました。以下の画像の説明を参考に、それが何であるか簡単に返答してください。\n\n${imageExplanation}`;
+    }
+  }
 
   message.channel.sendTyping();
   const completion = await openai.chat.completions.create({
@@ -100,7 +147,7 @@ const sendMessage = async (message: Message, model: string) => {
       },
       {
         "role": "user",
-        "content": message.content
+        "content": content
       }
     ],
     model: model,
@@ -138,7 +185,7 @@ client.on('messageCreate', async (message: Message) => {
   }
 });
 
-client.on('interactionCreate' , async (interaction: Interaction) => {
+client.on('interactionCreate', async (interaction: Interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const commandInteraction = interaction as CommandInteraction;
