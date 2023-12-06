@@ -1,10 +1,11 @@
 import { Client, Message, Interaction, CommandInteraction, Events } from 'discord.js';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { data, execute } from './commands/main';
+import { data } from './commands/main';
 
 dotenv.config();
 
+const version = '1.3';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const defaultModel = 'gpt-3.5-turbo-1106';
 const plusModel = 'gpt-4-1106-preview';
@@ -142,8 +143,32 @@ client.on('interactionCreate' , async (interaction: Interaction) => {
 
   const commandInteraction = interaction as CommandInteraction;
 
-  if (interaction.commandName === data.name) {
-    await execute(interaction);
+  switch (commandInteraction.commandName) {
+    case 'test':
+      await commandInteraction.reply('テスト');
+      break;
+    case 'version':
+      await commandInteraction.reply('現在のバージョンは' + version + 'です');
+      break;
+    case 'model':
+      await commandInteraction.reply('現在のGPTモデルは' + debugModel + 'です');
+      break;
+    case 'setmodel':
+      const model = commandInteraction.options.get('model', true)?.value as string;
+      if (model === 'default') {
+        debugModel = defaultModel;
+        await commandInteraction.reply('モデルを' + defaultModel + 'に設定しました');
+      }
+      else if (model === 'plus') {
+        debugModel = plusModel;
+        await commandInteraction.reply('モデルを' + plusModel + 'に設定しました');
+      }
+      else {
+        await commandInteraction.reply('存在しないモデルです');
+      }
+      break;
+    default:
+      break;
   }
 });
 

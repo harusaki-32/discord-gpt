@@ -13,7 +13,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN ?? "
   try {
     console.log("アプリケーションコマンドを登録します");
 
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [data.toJSON()] });
+    await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: data });
 
     console.log("アプリケーションコマンドの登録に成功しました");
   } catch (error) {
