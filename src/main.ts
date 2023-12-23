@@ -111,7 +111,7 @@ const getImageExplanation = async (message: Message) => {
           }
         ],
         model: 'gpt-4-vision-preview',
-        max_tokens: 200,
+        max_tokens: 250,
       });
 
       return completion.choices[0].message.content ?? 'null';
@@ -134,7 +134,7 @@ const sendMessage = async (message: Message, model: string) => {
     const imageExplanation = await getImageExplanation(message);
 
     if (imageExplanation !== 'noImage') {
-      content = `あなたは生徒から画像を見せられました。以下の画像の説明を参考に、それが何であるか簡単に返答してください。\n\n${imageExplanation}`;
+      content = process.env.IMAGE_PROMPT + imageExplanation;
     }
   }
 
@@ -168,6 +168,7 @@ client.once('ready', () => {
 
 client.on('messageCreate', async (message: Message) => {
   if (message.author.bot) return;
+  if (message.content.startsWith('https://')) return;
 
   // Default
   if (message.channelId === process.env.DEFAULT_CHANNEL_ID) {
