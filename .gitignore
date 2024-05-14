@@ -131,3 +131,5 @@ dist
 
 # Compiler generated build output
 /build
+
+channel-list.json

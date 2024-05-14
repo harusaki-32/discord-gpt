@@ -6,7 +6,8 @@
   "scripts": {
     "test": "ts-node src/main.ts",
     "start": "node build/main.js",
-    "compile": "tsc -p ."
+    "compile": "tsc -p .",
+    "cs": "npm run compile && npm run start"
   },
   "author": "",
   "license": "ISC",

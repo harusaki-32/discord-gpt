@@ -5,12 +5,12 @@ import { data } from './commands/main';
 
 dotenv.config();
 
-const version = '2.0';
+const version = '2.1';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const defaultModel = 'gpt-3.5-turbo-1106';
-const plusModel = 'gpt-4-1106-preview';
+const plusModel = 'gpt-4o';
 const systemContent = process.env.SYSTEM_PROMPT ?? '';
-let debugModel = defaultModel;
+let debugModel = plusModel;
 
 const isCommand = async (message: Message, model: string) => {
   const args = message.content.split(' ');
@@ -90,6 +90,7 @@ const isCommand = async (message: Message, model: string) => {
 
 const getImageExplanation = async (message: Message) => {
   const file = message.attachments.first();
+  const textContent = message.content ? message.content : "この画像について説明してください。"
 
   if (file?.height && file?.width) {
     if (file.contentType?.includes('image')) {
@@ -99,7 +100,10 @@ const getImageExplanation = async (message: Message) => {
           {
             "role": "user",
             "content": [
-              { "type": "text", "text": "What’s in this image? in Japanese." },
+              {
+                "type": "text",
+                "text": textContent
+              },
               {
                 "type": "image_url",
                 "image_url": {
@@ -110,18 +114,18 @@ const getImageExplanation = async (message: Message) => {
             ]
           }
         ],
-        model: 'gpt-4-vision-preview',
-        max_tokens: 250,
+        model: 'gpt-4o',
+        max_tokens: 300,
       });
 
       return completion.choices[0].message.content ?? 'null';
     }
     else {
-      return 'noImage';
+      return undefined;
     }
   }
   else {
-    return 'noImage';
+    return undefined;
   }
 }
 
@@ -133,7 +137,7 @@ const sendMessage = async (message: Message, model: string) => {
   if (model === plusModel) {
     const imageExplanation = await getImageExplanation(message);
 
-    if (imageExplanation !== 'noImage') {
+    if (imageExplanation) {
       content = process.env.IMAGE_PROMPT + imageExplanation;
     }
   }
@@ -175,7 +179,7 @@ client.on('messageCreate', async (message: Message) => {
     sendMessage(message, defaultModel);
   }
   // Plus
-  else if (message.channelId === process.env.PLUS_CHANNEL_ID) {
+  else if (message.channelId === process.env.PLUS_CHANNEL_ID || message.channelId === process.env.CODE_SASARAN) {
     sendMessage(message, plusModel);
   }
   else if (message.channelId === process.env.DEBUG_CHANNEL_ID) {
