@@ -2,15 +2,39 @@ import { Client, Message, Interaction, CommandInteraction, Events } from 'discor
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import { data } from './commands/main';
+import channelList from '../channel-list.json'
 
 dotenv.config();
 
-const version = '2.1';
+const version = '2.2';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const defaultModel = 'gpt-3.5-turbo-1106';
 const plusModel = 'gpt-4o';
 const systemContent = process.env.SYSTEM_PROMPT ?? '';
 let debugModel = plusModel;
+
+interface Channel {
+  id: string;
+  name: string;
+  mode: string;
+}
+
+const getModel = (mode: string) => {
+  switch (mode) {
+    case "default":
+      return defaultModel;
+    case "plus":
+      return plusModel;
+    case "debug":
+      return debugModel;
+    default:
+      return;
+  }
+}
+
+const getChannelMode = (channelId: string) => {
+  return channelList.find((channel: Channel) => channel.id === channelId)?.mode;
+}
 
 const isCommand = async (message: Message, model: string) => {
   const args = message.content.split(' ');
@@ -174,36 +198,43 @@ client.on('messageCreate', async (message: Message) => {
   if (message.author.bot) return;
   if (message.content.startsWith('https://')) return;
 
-  // Default
-  if (message.channelId === process.env.DEFAULT_CHANNEL_ID) {
-    sendMessage(message, defaultModel);
-  }
-  // Plus
-  else if (message.channelId === process.env.PLUS_CHANNEL_ID || message.channelId === process.env.CODE_SASARAN) {
-    sendMessage(message, plusModel);
-  }
-  else if (message.channelId === process.env.DEBUG_CHANNEL_ID) {
-    sendMessage(message, debugModel);
-  }
-  else {
-    return;
+  const mode = getChannelMode(message.channelId);
+  switch (mode) {
+    case "default":
+      sendMessage(message, defaultModel);
+      break;
+    case "plus":
+      sendMessage(message, plusModel);
+      break;
+    case "debug":
+      sendMessage(message, debugModel);
+      break;
+    default:
+      return;
   }
 });
 
 client.on('interactionCreate', async (interaction: Interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
+  const mode = getChannelMode(interaction.channelId);
+  if (!mode) {
+    await interaction.reply('このチャンネルではBOTを利用できません');
+    return;
+  }
+
   const commandInteraction = interaction as CommandInteraction;
+  console.log(commandInteraction.commandName);
 
   switch (commandInteraction.commandName) {
     case 'test':
-      await commandInteraction.reply('テスト');
+      await commandInteraction.reply('テストっぽいテキスト');
       break;
     case 'version':
       await commandInteraction.reply('現在のバージョンは' + version + 'です');
       break;
     case 'model':
-      await commandInteraction.reply('現在のGPTモデルは' + debugModel + 'です');
+      await commandInteraction.reply('現在のGPTモデルは' + getModel(mode) + 'です');
       break;
     case 'setmodel':
       const model = commandInteraction.options.get('model', true)?.value as string;
